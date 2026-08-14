@@ -9,6 +9,12 @@ def detect_intent(tokens):
     if "list" in tokens:
         return "SELECT"
 
+    if "display" in tokens:
+        return "SELECT"
+
+    if "get" in tokens:
+        return "SELECT"
+
     if "how" in tokens and "many" in tokens:
         return "COUNT"
 

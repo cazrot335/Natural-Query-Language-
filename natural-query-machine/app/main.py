@@ -1,35 +1,149 @@
-from parser.tokenizer import tokenize
 from parser.intent import detect_intent
 from parser.entities import detect_entity
-from parser.conditions import detect_condition
+from parser.fields import detect_fields
+from parser.conditions import detect_conditions
+from parser.ordering import detect_ordering
+from parser.limit import detect_limit
+
+from query.models import SCHEMA
+from query.validator import validate_query
+from query.sql_generator import generate_sql
 
 
 def parse_query(query):
 
-    tokens = tokenize(query)
+    # -----------------------------
+    # Tokenize
+    # -----------------------------
+
+    tokens = query.lower().split()
+
+    # -----------------------------
+    # Detect intent
+    # -----------------------------
 
     intent = detect_intent(tokens)
 
-    entity = detect_entity(tokens)
+    # -----------------------------
+    # Detect table
+    # -----------------------------
 
-    condition = detect_condition(tokens)
+    table = detect_entity(query)
 
-    result = {
+    # -----------------------------
+    # Detect fields
+    # -----------------------------
+
+    fields = []
+
+    if table:
+
+        fields = detect_fields(
+            query,
+            table
+        )
+
+    # -----------------------------
+    # Get valid fields
+    # -----------------------------
+
+    valid_fields = []
+
+    if table:
+
+        valid_fields = SCHEMA[
+            table
+        ]
+
+    # -----------------------------
+    # Detect conditions
+    # -----------------------------
+
+    conditions = detect_conditions(
+        query,
+        valid_fields
+    )
+
+    # -----------------------------
+    # Detect ordering
+    # -----------------------------
+
+    order_by = detect_ordering(
+        query
+    )
+
+    # -----------------------------
+    # Detect limit
+    # -----------------------------
+
+    limit = detect_limit(
+        query
+    )
+
+    # -----------------------------
+    # Build structured query
+    # -----------------------------
+
+    return {
+
         "intent": intent,
-        "entity": entity,
-        "conditions": []
+
+        "table": table,
+
+        "fields": fields,
+
+        "conditions": conditions,
+
+        "order_by": order_by,
+
+        "limit": limit
     }
-
-    if condition:
-        result["conditions"].append(condition)
-
-    return result
 
 
 if __name__ == "__main__":
 
-    query = input("Enter query: ")
+    query = input(
+        "Enter query: "
+    )
 
-    result = parse_query(query)
+    try:
 
-    print(result)
+        parsed_query = parse_query(
+            query
+        )
+
+        print(
+            "\nStructured Query:"
+        )
+
+        print(parsed_query)
+
+        # -----------------------------
+        # Validate
+        # -----------------------------
+
+        validate_query(
+            parsed_query
+        )
+
+        # -----------------------------
+        # Generate SQL
+        # -----------------------------
+
+        sql = generate_sql(
+            parsed_query
+        )
+
+        print(
+            "\nGenerated SQL:"
+        )
+
+        print(sql)
+
+    except ValueError as error:
+
+        print(
+            "\nError:"
+        )
+
+        print(error)

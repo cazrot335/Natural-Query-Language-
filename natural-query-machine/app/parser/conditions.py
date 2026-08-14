@@ -1,35 +1,93 @@
+import re
+
+
 OPERATORS = {
+    "greater than": ">",
+    "more than": ">",
     "above": ">",
     "over": ">",
-    "greater": ">",
+
+    "less than": "<",
+    "lower than": "<",
     "below": "<",
     "under": "<",
-    "less": "<",
+
+    "equal to": "=",
     "equals": "=",
     "equal": "="
 }
 
 
-def detect_condition(tokens):
+def detect_conditions(query, valid_fields):
 
-    for i, token in enumerate(tokens):
+    query_lower = query.lower()
 
-        if token in OPERATORS:
+    conditions = []
 
-            operator = OPERATORS[token]
+    # --------------------------------
+    # Check every valid field against
+    # every supported operator.
+    # --------------------------------
 
-            if i + 1 < len(tokens):
-                value = tokens[i + 1]
+    for field in valid_fields:
 
-                field = None
+        readable_field = field.replace(
+            "_",
+            " "
+        )
 
-                if i > 0:
-                    field = tokens[i - 1]
+        for operator_text, operator_symbol in OPERATORS.items():
 
-                return {
+            pattern = (
+                rf"\b{re.escape(readable_field)}\b"
+                rf"\s+"
+                rf"{re.escape(operator_text)}"
+                rf"\s+"
+                rf"(\d+(?:\.\d+)?)"
+            )
+
+            matches = re.finditer(
+                pattern,
+                query_lower
+            )
+
+            for match in matches:
+
+                value = match.group(1)
+
+                condition = {
                     "field": field,
-                    "operator": operator,
-                    "value": value
+                    "operator": operator_symbol,
+                    "value": convert_value(value),
+                    "_position": match.start()
                 }
 
-    return None
+                conditions.append(condition)
+
+    # --------------------------------
+    # Sort conditions according to
+    # their position in the query.
+    # --------------------------------
+
+    conditions.sort(
+        key=lambda condition: condition["_position"]
+    )
+
+    # --------------------------------
+    # Remove internal position data.
+    # --------------------------------
+
+    for condition in conditions:
+
+        del condition["_position"]
+
+    return conditions
+
+
+def convert_value(value):
+
+    if "." in value:
+
+        return float(value)
+
+    return int(value)
