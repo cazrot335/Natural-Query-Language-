@@ -23,7 +23,10 @@ def detect_entity(query):
 
     query_lower = query.lower()
 
-    # Check longer phrases first
+    # --------------------------------
+    # 1. Check explicit entity names
+    # --------------------------------
+
     aliases = sorted(
         ENTITY_ALIASES.items(),
         key=lambda item: len(item[0]),
@@ -33,12 +36,59 @@ def detect_entity(query):
     for phrase, table in aliases:
 
         if phrase in query_lower:
+
             return table
 
-    # Fallback to schema table names
+    # --------------------------------
+    # 2. Check actual schema table names
+    # --------------------------------
+
     for table in SCHEMA:
 
-        if table in query_lower:
+        if table.lower() in query_lower:
+
             return table
+
+    # --------------------------------
+    # 3. Infer table from fields
+    # --------------------------------
+
+    table_scores = {}
+
+    for table, fields in SCHEMA.items():
+
+        score = 0
+
+        for field in fields:
+
+            field_readable = field.replace(
+                "_",
+                " "
+            )
+
+            # Check database field name
+            if field.lower() in query_lower:
+
+                score += 1
+
+            # Check human-readable field name
+            elif field_readable.lower() in query_lower:
+
+                score += 1
+
+        if score > 0:
+
+            table_scores[table] = score
+
+    # --------------------------------
+    # 4. Return highest scoring table
+    # --------------------------------
+
+    if table_scores:
+
+        return max(
+            table_scores,
+            key=table_scores.get
+        )
 
     return None

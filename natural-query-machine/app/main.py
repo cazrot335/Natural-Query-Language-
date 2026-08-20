@@ -4,6 +4,7 @@ from parser.fields import detect_fields
 from parser.conditions import detect_conditions
 from parser.ordering import detect_ordering
 from parser.limit import detect_limit
+from parser.boolean import build_condition_tree
 
 from query.models import SCHEMA
 from query.validator import validate_query
@@ -65,12 +66,18 @@ def parse_query(query):
     )
 
     # -----------------------------
+# Build condition tree
+# -----------------------------
+
+    condition_tree = build_condition_tree(
+        conditions
+    )
+
+    # -----------------------------
     # Detect ordering
     # -----------------------------
 
-    order_by = detect_ordering(
-        query
-    )
+    order_by = detect_ordering(query, table)
 
     # -----------------------------
     # Detect limit
@@ -86,18 +93,20 @@ def parse_query(query):
 
     return {
 
-        "intent": intent,
+    "intent": intent,
 
-        "table": table,
+    "table": table,
 
-        "fields": fields,
+    "fields": fields,
 
-        "conditions": conditions,
+    "conditions": conditions,
 
-        "order_by": order_by,
+    "condition_tree": condition_tree,
 
-        "limit": limit
-    }
+    "order_by": order_by,
+
+    "limit": limit
+}
 
 
 if __name__ == "__main__":

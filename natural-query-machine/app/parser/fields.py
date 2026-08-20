@@ -62,6 +62,14 @@ CONDITION_OPERATORS = sorted(
 )
 
 
+ORDER_PHRASES = [
+    "ordered by",
+    "order by",
+    "sorted by",
+    "sort by"
+]
+
+
 def detect_fields(query, table):
 
     query_lower = query.lower()
@@ -71,11 +79,11 @@ def detect_fields(query, table):
         []
     )
 
-    # --------------------------------
-    # Find all occurrences of fields
-    # --------------------------------
-
     occurrences = []
+
+    # --------------------------------
+    # Find field occurrences
+    # --------------------------------
 
     for field in available_fields:
 
@@ -84,18 +92,12 @@ def detect_fields(query, table):
             " "
         )
 
-        # Search both:
-        #
-        # daily_rate
-        #
-        # daily rate
-
         search_terms = [
-            readable_field,
-            field
+            field,
+            readable_field
         ]
 
-        # Add aliases belonging to this field
+        # Add aliases
         for alias, alias_field in FIELD_ALIASES.items():
 
             if alias_field == field:
@@ -118,7 +120,7 @@ def detect_fields(query, table):
                 })
 
     # --------------------------------
-    # Sort by position in user's query
+    # Sort fields by appearance
     # --------------------------------
 
     occurrences.sort(
@@ -126,35 +128,19 @@ def detect_fields(query, table):
     )
 
     # --------------------------------
-    # Find occurrences that are part
-    # of conditions.
+    # Identify fields used in
+    # conditions
     # --------------------------------
 
-    condition_occurrences = set()
+    condition_positions = set()
 
     for occurrence in occurrences:
 
-        field = occurrence["field"]
-
-        readable_field = field.replace(
-            "_",
-            " "
-        )
-
         field_end = occurrence["end"]
 
-        text_after_field = query_lower[
+        text_after = query_lower[
             field_end:
         ]
-
-        # Only inspect a short portion
-        # after the field.
-        #
-        # Example:
-        #
-        # daily rate above 500
-        #
-        # This should be a condition.
 
         for operator in CONDITION_OPERATORS:
 
@@ -167,36 +153,77 @@ def detect_fields(query, table):
 
             if re.match(
                 pattern,
-                text_after_field
+                text_after
             ):
 
-                condition_occurrences.add(
+                condition_positions.add(
                     occurrence["position"]
                 )
 
                 break
 
     # --------------------------------
-    # Build selected fields.
+    # Identify fields used in ORDER BY
+    # --------------------------------
+
+    order_positions = set()
+
+    for occurrence in occurrences:
+
+        field_position = occurrence[
+            "position"
+        ]
+
+        for phrase in ORDER_PHRASES:
+
+            order_position = query_lower.find(
+                phrase
+            )
+
+            if order_position == -1:
+                continue
+
+            # Field is part of ORDER BY if
+            # it occurs after "ordered by",
+            # "sorted by", etc.
+
+            if field_position > order_position:
+
+                order_positions.add(
+                    field_position
+                )
+
+    # --------------------------------
+    # Build selected fields
     # --------------------------------
 
     selected_fields = []
 
     for occurrence in occurrences:
 
-        position = occurrence["position"]
+        position = occurrence[
+            "position"
+        ]
 
-        field = occurrence["field"]
+        field = occurrence[
+            "field"
+        ]
 
-        # Skip field occurrence if it is
-        # being used as a condition.
-
-        if position in condition_occurrences:
+        # Skip condition fields
+        if position in condition_positions:
 
             continue
 
+        # Skip ORDER BY fields
+        if position in order_positions:
+
+            continue
+
+        # Prevent duplicates
         if field not in selected_fields:
 
-            selected_fields.append(field)
+            selected_fields.append(
+                field
+            )
 
     return selected_fields

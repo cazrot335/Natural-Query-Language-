@@ -2,19 +2,37 @@ import re
 
 
 OPERATORS = {
+    # -----------------------------
+    # Greater than
+    # -----------------------------
+
     "greater than": ">",
     "more than": ">",
     "above": ">",
     "over": ">",
+    "higher than": ">",
+    "exceeding": ">",
+    "exceeds": ">",
+
+    # -----------------------------
+    # Less than
+    # -----------------------------
 
     "less than": "<",
     "lower than": "<",
     "below": "<",
     "under": "<",
+    "fewer than": "<",
+    "lower": "<",
+
+    # -----------------------------
+    # Equal
+    # -----------------------------
 
     "equal to": "=",
     "equals": "=",
-    "equal": "="
+    "equal": "=",
+    "is equal to": "=",
 }
 
 
@@ -25,8 +43,7 @@ def detect_conditions(query, valid_fields):
     conditions = []
 
     # --------------------------------
-    # Check every valid field against
-    # every supported operator.
+    # Find all conditions
     # --------------------------------
 
     for field in valid_fields:
@@ -59,14 +76,17 @@ def detect_conditions(query, valid_fields):
                     "field": field,
                     "operator": operator_symbol,
                     "value": convert_value(value),
-                    "_position": match.start()
+
+                    # Internal parser positions
+                    "_position": match.start(),
+                    "_end": match.end()
                 }
 
                 conditions.append(condition)
 
     # --------------------------------
-    # Sort conditions according to
-    # their position in the query.
+    # Sort conditions by their position
+    # in the original query
     # --------------------------------
 
     conditions.sort(
@@ -74,12 +94,55 @@ def detect_conditions(query, valid_fields):
     )
 
     # --------------------------------
-    # Remove internal position data.
+    # Detect AND / OR between
+    # conditions
+    # --------------------------------
+
+    for index in range(1, len(conditions)):
+
+        previous = conditions[index - 1]
+        current = conditions[index]
+
+        between = query_lower[
+            previous["_end"]:current["_position"]
+        ]
+
+        # Default connector
+        connector = "AND"
+
+        # Look for OR first
+        if re.search(
+            r"\bor\b",
+            between
+        ):
+
+            connector = "OR"
+
+        elif re.search(
+            r"\band\b",
+            between
+        ):
+
+            connector = "AND"
+
+        current["connector"] = connector
+
+    # --------------------------------
+    # First condition has no connector
+    # --------------------------------
+
+    if conditions:
+
+        conditions[0]["connector"] = None
+
+    # --------------------------------
+    # Remove internal parser data
     # --------------------------------
 
     for condition in conditions:
 
         del condition["_position"]
+        del condition["_end"]
 
     return conditions
 
